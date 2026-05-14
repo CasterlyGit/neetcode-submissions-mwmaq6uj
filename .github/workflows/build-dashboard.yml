@@ -1,0 +1,49 @@
+name: build dashboard
+
+# Regenerate docs/index.html + docs/data.json whenever submissions change.
+# Skips runs caused by the bot's own commit (commit message prefix "dashboard:").
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Data Structures & Algorithms/**'
+      - 'Python For Beginners/**'
+      - 'scripts/build-dashboard.py'
+      - 'docs/_template.html'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-dashboard
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: "!startsWith(github.event.head_commit.message, 'dashboard:')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history → accurate solve dates
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: build dashboard
+        run: python3 scripts/build-dashboard.py
+
+      - name: commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/index.html docs/data.json
+          if git diff --cached --quiet; then
+            echo "no dashboard changes"
+            exit 0
+          fi
+          git commit -m "dashboard: refresh stats from latest submissions"
+          git push
